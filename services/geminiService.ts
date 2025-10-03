@@ -20,41 +20,64 @@ export const generateVideo = async (job: Job, accessToken: string): Promise<stri
         throw new Error("Google Project ID is not configured.");
     }
     
-    // Construct the correct Vertex AI endpoint for video generation
     const url = `${API_BASE_URL}/v1/projects/${config.GOOGLE_PROJECT_ID}/locations/${LOCATION}/publishers/google/models/${job.model}:generateContent`;
 
-    // The 'parts' array was inferred as `Array<{text: string}>`, which prevents adding image data.
-    // By defining a more flexible type for the parts array, we can include both text and image data.
-    const parts: ({ text: string } | { inlineData: { mimeType: string; data: string; } })[] = [{ text: job.prompt }];
+    let body;
 
-    if (job.inputType === InputType.IMAGE && job.image) {
-        parts.push({
-            inlineData: {
-                mimeType: job.image.mimeType,
-                data: job.image.base64
-            }
-        });
-    }
-    
-    const contents = [{
-        role: "user",
-        parts: parts
-    }];
-
-    // FIX: The Vertex AI VEO API expects video-specific parameters like 'aspectRatio'
-    // to be in a top-level 'parameters' object, not inside 'generationConfig'.
-    // Also, connecting the 'outputCount' from the UI to the 'sampleCount' API parameter.
-    const body = {
-        contents: contents,
-        parameters: {
+    try {
+        // Attempt to parse the prompt as JSON. If it succeeds, it's a complex prompt.
+        const parsedPrompt = JSON.parse(job.prompt);
+        
+        // Use the parsed JSON as the base of the request body.
+        // This allows for detailed, structured prompts like those from Google Labs.
+        // We merge the UI settings into this object.
+        body = {
+            ...parsedPrompt,
             aspectRatio: job.aspectRatio,
             sampleCount: job.outputCount,
-        },
-        generationConfig: {
-            // This object is for general generation parameters like temperature, etc.
-            // Leaving it empty for now as we don't have UI controls for it.
+        };
+
+        // If an image is provided, add it to the 'parts' array within the user's JSON structure.
+        if (job.inputType === InputType.IMAGE && job.image) {
+            const imagePart = {
+                inlineData: {
+                    mimeType: job.image.mimeType,
+                    data: job.image.base64
+                }
+            };
+            // Ensure contents and parts exist before pushing
+            if (!body.contents) body.contents = [{ role: "user", parts: [] }];
+            if (!body.contents[0].parts) body.contents[0].parts = [];
+            body.contents[0].parts.push(imagePart);
         }
-    };
+
+    } catch (error) {
+        // If parsing fails, treat it as a simple plain text prompt.
+        const parts: ({ text: string } | { inlineData: { mimeType: string; data: string; } })[] = [{ text: job.prompt }];
+
+        if (job.inputType === InputType.IMAGE && job.image) {
+            parts.push({
+                inlineData: {
+                    mimeType: job.image.mimeType,
+                    data: job.image.base64
+                }
+            });
+        }
+        
+        const contents = [{
+            role: "user",
+            parts: parts
+        }];
+
+        // FIX: The VEO API expects aspectRatio and sampleCount at the root level, not inside a 'parameters' object.
+        // This was the cause of the error for simple text prompts.
+        body = {
+            contents: contents,
+            aspectRatio: job.aspectRatio,
+            sampleCount: job.outputCount,
+            generationConfig: {}
+        };
+    }
     
     // This is an async endpoint that returns an operation
     const response = await fetch(url, {
@@ -68,8 +91,6 @@ export const generateVideo = async (job: Job, accessToken: string): Promise<stri
 
     const data = await handleApiResponse(response);
     
-    // Vertex AI operation names are full resource paths
-    // e.g., projects/PROJECT_ID/locations/LOCATION/operations/OPERATION_ID
     if (!data.name) {
         console.error("Unexpected response from generateVideo:", data);
         throw new Error("API did not return a valid operation name.");
@@ -79,11 +100,10 @@ export const generateVideo = async (job: Job, accessToken: string): Promise<stri
 
 
 export const pollVideoStatus = async (operationName: string, accessToken: string): Promise<string | undefined> => {
-    // The operationName from Vertex is a full resource path, so we use it with the base URL.
     const url = `${API_BASE_URL}/v1/${operationName}`;
 
     while (true) {
-        await new Promise(resolve => setTimeout(resolve, 10000)); // Poll every 10 seconds
+        await new Promise(resolve => setTimeout(resolve, 10000)); 
 
         const response = await fetch(url, {
             method: 'GET',
@@ -98,20 +118,14 @@ export const pollVideoStatus = async (operationName: string, accessToken: string
             if (operation.error) {
                 throw new Error(`Operation failed: ${operation.error.message}`);
             }
-            // The result format for Vertex AI VEO might be different.
-            // The video URI is often in response.generatedVideos[0].video.uri
-            // Even if multiple videos are generated, we'll only process the first one for now.
             return operation.response?.generatedVideos?.[0]?.video?.uri;
         }
     }
 };
 
 export const fetchVideoAsBlob = async (uri: string, accessToken: string): Promise<string> => {
-    // The URI from the operation is a protected resource and needs authentication.
     const response = await fetch(uri, {
         headers: {
-            // Note: Some signed URLs may not require an additional auth header.
-            // If downloads fail, this might be the reason.
             'Authorization': `Bearer ${accessToken}`,
         }
     });
