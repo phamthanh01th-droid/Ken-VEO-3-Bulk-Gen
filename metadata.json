@@ -1,0 +1,5 @@
+{
+  "name": "Ken Veo Bulk Video Generator",
+  "description": "A powerful tool to generate multiple videos in batches using Google's VEO models. It features a robust job queue system, parallel processing, and customizable parameters for each video generation task.",
+  "requestFramePermissions": []
+}
