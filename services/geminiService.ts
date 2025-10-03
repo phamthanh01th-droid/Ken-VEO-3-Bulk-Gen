@@ -42,9 +42,10 @@ export const generateVideo = async (job: Job, accessToken: string): Promise<stri
 
     const body = {
         contents: contents,
-        aspectRatio: job.aspectRatio,
-        sampleCount: job.outputCount,
-        generationConfig: {} // The API requires this field, even if empty.
+        generationConfig: {
+            aspectRatio: job.aspectRatio,
+            sampleCount: job.outputCount,
+        }
     };
     
     // This is an async endpoint that returns an operation
