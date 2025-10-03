@@ -22,62 +22,30 @@ export const generateVideo = async (job: Job, accessToken: string): Promise<stri
     
     const url = `${API_BASE_URL}/v1/projects/${config.GOOGLE_PROJECT_ID}/locations/${LOCATION}/publishers/google/models/${job.model}:generateContent`;
 
-    let body;
+    // Unified logic for all prompt types. The prompt, whether simple text or a stringified JSON object,
+    // is always placed within the 'parts' array as text content. The API model is trained to interpret this.
+    const parts: ({ text: string } | { inlineData: { mimeType: string; data: string; } })[] = [{ text: job.prompt }];
 
-    try {
-        // Attempt to parse the prompt as JSON. If it succeeds, it's a complex prompt.
-        const parsedPrompt = JSON.parse(job.prompt);
-        
-        // Use the parsed JSON as the base of the request body.
-        // This allows for detailed, structured prompts like those from Google Labs.
-        // We merge the UI settings into this object.
-        body = {
-            ...parsedPrompt,
-            aspectRatio: job.aspectRatio,
-            sampleCount: job.outputCount,
-        };
-
-        // If an image is provided, add it to the 'parts' array within the user's JSON structure.
-        if (job.inputType === InputType.IMAGE && job.image) {
-            const imagePart = {
-                inlineData: {
-                    mimeType: job.image.mimeType,
-                    data: job.image.base64
-                }
-            };
-            // Ensure contents and parts exist before pushing
-            if (!body.contents) body.contents = [{ role: "user", parts: [] }];
-            if (!body.contents[0].parts) body.contents[0].parts = [];
-            body.contents[0].parts.push(imagePart);
-        }
-
-    } catch (error) {
-        // If parsing fails, treat it as a simple plain text prompt.
-        const parts: ({ text: string } | { inlineData: { mimeType: string; data: string; } })[] = [{ text: job.prompt }];
-
-        if (job.inputType === InputType.IMAGE && job.image) {
-            parts.push({
-                inlineData: {
-                    mimeType: job.image.mimeType,
-                    data: job.image.base64
-                }
-            });
-        }
-        
-        const contents = [{
-            role: "user",
-            parts: parts
-        }];
-
-        // FIX: The VEO API expects aspectRatio and sampleCount at the root level, not inside a 'parameters' object.
-        // This was the cause of the error for simple text prompts.
-        body = {
-            contents: contents,
-            aspectRatio: job.aspectRatio,
-            sampleCount: job.outputCount,
-            generationConfig: {}
-        };
+    if (job.inputType === InputType.IMAGE && job.image) {
+        parts.push({
+            inlineData: {
+                mimeType: job.image.mimeType,
+                data: job.image.base64
+            }
+        });
     }
+    
+    const contents = [{
+        role: "user",
+        parts: parts
+    }];
+
+    const body = {
+        contents: contents,
+        aspectRatio: job.aspectRatio,
+        sampleCount: job.outputCount,
+        generationConfig: {} // The API requires this field, even if empty.
+    };
     
     // This is an async endpoint that returns an operation
     const response = await fetch(url, {
