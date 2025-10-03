@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { User } from '../types';
-import { GOOGLE_CLIENT_ID, GOOGLE_PROJECT_ID } from '../config';
+import { config } from '../config';
 
 // Add a global type declaration for window.google to satisfy TypeScript
 declare global {
@@ -35,9 +35,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [configError, setConfigError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!GOOGLE_CLIENT_ID) {
+        if (!config.GOOGLE_CLIENT_ID) {
             setConfigError("Configuration Error: Google Client ID is not set. Please contact the administrator.");
-        } else if (!GOOGLE_PROJECT_ID) {
+        } else if (!config.GOOGLE_PROJECT_ID) {
             setConfigError("Configuration Error: Google Project ID is not set. Please contact the administrator.");
         } else {
             setIsConfigured(true);
@@ -72,7 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (window.google && window.google.accounts) {
                 try {
                     const client = window.google.accounts.oauth2.initTokenClient({
-                        client_id: GOOGLE_CLIENT_ID,
+                        client_id: config.GOOGLE_CLIENT_ID,
                         scope: GOOGLE_API_SCOPE,
                         callback: (tokenResponse: any) => {
                             if (tokenResponse.error) {

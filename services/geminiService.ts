@@ -1,5 +1,5 @@
 import { Job, InputType } from '../types';
-import { GOOGLE_PROJECT_ID } from '../config';
+import { config } from '../config';
 
 // VEO models are hosted on Vertex AI, which requires a region-specific endpoint.
 const LOCATION = 'us-central1';
@@ -16,14 +16,14 @@ const handleApiResponse = async (response: Response) => {
 };
 
 export const generateVideo = async (job: Job, accessToken: string): Promise<string> => {
-    if (!GOOGLE_PROJECT_ID) {
+    if (!config.GOOGLE_PROJECT_ID) {
         throw new Error("Google Project ID is not configured.");
     }
     
     // Construct the correct Vertex AI endpoint for video generation
-    const url = `${API_BASE_URL}/v1/projects/${GOOGLE_PROJECT_ID}/locations/${LOCATION}/publishers/google/models/${job.model}:generateContent`;
+    const url = `${API_BASE_URL}/v1/projects/${config.GOOGLE_PROJECT_ID}/locations/${LOCATION}/publishers/google/models/${job.model}:generateContent`;
 
-    // FIX: The 'parts' array was inferred as `Array<{text: string}>`, which prevents adding image data.
+    // The 'parts' array was inferred as `Array<{text: string}>`, which prevents adding image data.
     // By defining a more flexible type for the parts array, we can include both text and image data.
     const parts: ({ text: string } | { inlineData: { mimeType: string; data: string; } })[] = [{ text: job.prompt }];
 
@@ -41,12 +41,18 @@ export const generateVideo = async (job: Job, accessToken: string): Promise<stri
         parts: parts
     }];
 
+    // FIX: The Vertex AI VEO API expects video-specific parameters like 'aspectRatio'
+    // to be in a top-level 'parameters' object, not inside 'generationConfig'.
+    // Also, connecting the 'outputCount' from the UI to the 'sampleCount' API parameter.
     const body = {
         contents: contents,
-        generationConfig: {
-            // Include other parameters inside generationConfig
+        parameters: {
             aspectRatio: job.aspectRatio,
-            // You can add other generation parameters here if needed
+            sampleCount: job.outputCount,
+        },
+        generationConfig: {
+            // This object is for general generation parameters like temperature, etc.
+            // Leaving it empty for now as we don't have UI controls for it.
         }
     };
     
@@ -60,19 +66,11 @@ export const generateVideo = async (job: Job, accessToken: string): Promise<stri
         body: JSON.stringify(body)
     });
 
-    // The response for video generation on Vertex AI might be an operation object directly
-    // Let's assume the API returns a long-running operation that needs to be polled.
-    // The structure might differ, this is a common pattern. If the API returns the video directly, this needs adjustment.
-    // Based on the old code's polling logic, we'll assume it returns an operation name.
     const data = await handleApiResponse(response);
     
     // Vertex AI operation names are full resource paths
     // e.g., projects/PROJECT_ID/locations/LOCATION/operations/OPERATION_ID
-    // We need to extract the operation ID or use the full name for polling.
-    // Let's find the operation name from the response. It's often in a header or the body.
-    // Checking for a `name` property in the response body.
     if (!data.name) {
-         // The response might be structured differently, let's log it for debugging
         console.error("Unexpected response from generateVideo:", data);
         throw new Error("API did not return a valid operation name.");
     }
@@ -101,8 +99,8 @@ export const pollVideoStatus = async (operationName: string, accessToken: string
                 throw new Error(`Operation failed: ${operation.error.message}`);
             }
             // The result format for Vertex AI VEO might be different.
-            // Adjusting based on common Vertex AI patterns.
             // The video URI is often in response.generatedVideos[0].video.uri
+            // Even if multiple videos are generated, we'll only process the first one for now.
             return operation.response?.generatedVideos?.[0]?.video?.uri;
         }
     }
@@ -110,8 +108,6 @@ export const pollVideoStatus = async (operationName: string, accessToken: string
 
 export const fetchVideoAsBlob = async (uri: string, accessToken: string): Promise<string> => {
     // The URI from the operation is a protected resource and needs authentication.
-    // It could be a GCS URI (gs://) or a signed URL. If it's a GCS URI, this fetch will fail.
-    // Assuming the API provides a temporary downloadable HTTPS URL.
     const response = await fetch(uri, {
         headers: {
             // Note: Some signed URLs may not require an additional auth header.
