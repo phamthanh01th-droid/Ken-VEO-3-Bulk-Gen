@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+// FIX: Import the `React` namespace to make React types like `React.Dispatch` available.
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Job, JobStatus } from '../types';
 import { generateVideo, pollVideoStatus, fetchVideoAsBlob } from '../services/geminiService';
 

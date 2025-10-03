@@ -1,6 +1,6 @@
 import { Job, InputType } from '../types';
+import { GOOGLE_PROJECT_ID } from '../config';
 
-const GOOGLE_PROJECT_ID = 'concise-perigee-474013-p4';
 // VEO models are hosted on Vertex AI, which requires a region-specific endpoint.
 const LOCATION = 'us-central1';
 const API_BASE_URL = `https://${LOCATION}-aiplatform.googleapis.com`;

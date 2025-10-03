@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { User } from '../types';
+import { GOOGLE_CLIENT_ID, GOOGLE_PROJECT_ID } from '../config';
 
 // Add a global type declaration for window.google to satisfy TypeScript
 declare global {
@@ -21,9 +22,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const GOOGLE_CLIENT_ID = '65331249013-h92qnupqivfh85jbfh1jehv5vgt2ok7g.apps.googleusercontent.com';
-const GOOGLE_PROJECT_ID = 'concise-perigee-474013-p4';
-const GOOGLE_API_SCOPE = 'https://www.googleapis.com/auth/cloud-platform';
+const GOOGLE_API_SCOPE = 'https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.profile';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
