@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { User } from '../types';
-import { config } from '../config';
+import config from '../config';
 
 // Add a global type declaration for window.google to satisfy TypeScript
 declare global {

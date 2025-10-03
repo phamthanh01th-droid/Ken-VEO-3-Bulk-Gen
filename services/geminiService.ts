@@ -1,5 +1,5 @@
 import { Job, InputType } from '../types';
-import { config } from '../config';
+import config from '../config';
 
 // VEO models are hosted on Vertex AI, which requires a region-specific endpoint.
 const LOCATION = 'us-central1';

@@ -8,7 +8,7 @@
 // IMPORTANT: These values must be correctly configured for the application to function.
 // These are placeholders and should be replaced with your own Google Cloud Project credentials.
 
-export const config = {
+const config = {
   /**
    * The Google Client ID for OAuth 2.0 authentication.
    * This ID is obtained from the Google Cloud Console and is used to identify the application
@@ -23,3 +23,5 @@ export const config = {
    */
   GOOGLE_PROJECT_ID: 'concise-perigee-474013-p4',
 };
+
+export default config;
